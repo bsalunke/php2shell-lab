@@ -1,0 +1,11 @@
+.git
+.github
+.dockerignore
+.gitignore
+Dockerfile
+LICENSE
+Makefile
+README.md
+SECURITY.md
+docker-compose.yml
+scripts

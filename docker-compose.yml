@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+      args:
+        # 8.3.35 is vulnerable. Use 8.3.36 for a patched baseline.
+        PHP_VERSION: ${PHP_VERSION:-8.3.35}
+    image: php2shell-lab:${PHP_VERSION:-8.3.35}
+    ports:
+      # Bind to localhost only. Never expose this lab to the internet.
+      - "127.0.0.1:${PORT:-8080}:80"
+    restart: unless-stopped
