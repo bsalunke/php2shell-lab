@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1
+#
+# Distro-packaged variant: PHP is installed from Debian's php8.2 packages, so it
+# appears in the image's OS package inventory. Scanners that only look at dpkg
+# metadata (including qscanner) can see it, unlike the source-built php:* image.
+#
+# 8.2.32-1~deb12u1 is the last bookworm/main build before the PHP2Shell fix
+# (8.2.35). The apt pin keeps the patched security update out of the image.
+
+FROM debian:12
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN printf '%s\n' \
+      'Package: php8.2* libapache2-mod-php8.2' \
+      'Pin: version 8.2.32-1~deb12u1' \
+      'Pin-Priority: 1001' \
+      > /etc/apt/preferences.d/php2shell
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      apache2 \
+      libapache2-mod-php8.2 \
+      php8.2-cli \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY php/99-php2shell-lab.ini /etc/php/8.2/apache2/conf.d/
+COPY src/ /var/www/html/
+
+RUN rm -f /var/www/html/index.html \
+ && chown -R www-data:www-data /var/www/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD php -r '$s = @file_get_contents("http://127.0.0.1/status.php"); exit($s === false ? 1 : 0);'
+
+CMD ["apache2ctl", "-D", "FOREGROUND"]

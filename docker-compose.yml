@@ -10,3 +10,15 @@ services:
       # Bind to localhost only. Never expose this lab to the internet.
       - "127.0.0.1:${PORT:-8080}:80"
     restart: unless-stopped
+
+  # Debian-packaged PHP, so OS package scanners can see the vulnerable version.
+  # docker compose --profile distro up --build
+  web-distro:
+    profiles: ["distro"]
+    build:
+      context: .
+      dockerfile: Dockerfile.distro
+    image: php2shell-lab:8.2.32-distro
+    ports:
+      - "127.0.0.1:${DISTRO_PORT:-8082}:80"
+    restart: unless-stopped
