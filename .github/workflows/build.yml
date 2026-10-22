@@ -53,3 +53,41 @@ jobs:
       - name: Stop container
         if: always()
         run: docker rm -f lab || true
+
+  distro:
+    name: Debian-packaged PHP 8.2.32
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.distro
+          load: true
+          push: false
+          tags: php2shell-lab:8.2.32-distro
+
+      - name: Start container
+        run: docker run -d --name lab-distro -p 8080:80 php2shell-lab:8.2.32-distro
+
+      - name: Verify PHP2Shell status
+        env:
+          BASE_URL: http://localhost:8080
+          EXPECT: vulnerable
+        run: ./scripts/verify.sh
+
+      - name: Confirm PHP is an OS package
+        run: docker exec lab-distro dpkg-query -W -f='${Package} ${Version}\n' 'php8.2*' 'libapache2-mod-php8.2'
+
+      - name: Container logs
+        if: failure()
+        run: docker logs lab-distro
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f lab-distro || true

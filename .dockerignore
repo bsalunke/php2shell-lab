@@ -3,6 +3,7 @@
 .dockerignore
 .gitignore
 Dockerfile
+Dockerfile.distro
 LICENSE
 Makefile
 README.md

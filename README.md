@@ -28,6 +28,12 @@ The image defaults to **PHP 8.3.35** (one release before the fix) on **Apache mo
 configuration where application-independent RCE was confirmed. Build with `PHP_VERSION=8.3.36` to get
 a patched baseline and compare the two.
 
+There is also a **Debian-packaged variant** ([`Dockerfile.distro`](Dockerfile.distro)) that installs
+`php8.2` 8.2.32-1~deb12u1 from `bookworm/main` and pins it below the fixed 8.2.35. The official
+`php:*` images compile PHP from source, so PHP never appears in the dpkg inventory and
+package-based scanners cannot see it. The distro variant exists so scanners such as Qualys qscanner
+can flag the CVEs against a real OS package.
+
 ## Vulnerabilities
 
 | CVE | Advisory | Class | Impact |
@@ -110,11 +116,57 @@ BASE_URL=http://localhost:8081 EXPECT=patched ./scripts/verify.sh
 The page banner and `status.php` flip from `vulnerable: true` to `vulnerable: false`. That is the
 entire point: same application, same configuration, different PHP patch level.
 
+### Debian-packaged build
+
+```bash
+docker build -f Dockerfile.distro -t php2shell-lab:8.2.32-distro .
+docker run --rm -p 127.0.0.1:8082:80 php2shell-lab:8.2.32-distro
+
+BASE_URL=http://localhost:8082 EXPECT=vulnerable ./scripts/verify.sh
+```
+
+Or via Compose: `docker compose --profile distro up --build` (port 8082).
+
+```bash
+docker exec <container> dpkg-query -W -f='${Package} ${Version}\n' 'php8.2*' 'libapache2-mod-php8.2'
+# libapache2-mod-php8.2 8.2.32-1~deb12u1
+# php8.2-cli 8.2.32-1~deb12u1
+# php8.2-common 8.2.32-1~deb12u1
+# php8.2-opcache 8.2.32-1~deb12u1
+# php8.2-readline 8.2.32-1~deb12u1
+```
+
+## Scanning with Qualys qscanner
+
+Credentials come from the environment; nothing is stored in the repository.
+
+```bash
+export QUALYS_CLIENT_ID=...
+export QUALYS_CLIENT_SECRET=...
+
+qscanner --pod US2 image php2shell-lab:8.2.32-distro
+```
+
+The distro variant is reported as vulnerable:
+
+| QID | CVE | Installed | Fixed |
+| --- | --- | --- | --- |
+| 6297246 | CVE-2026-109618 | `php8.2` 8.2.32-1~deb12u1 | 8.2.35-1~deb12u1 |
+| 6297238 | CVE-2026-109619 | `php8.2` 8.2.32-1~deb12u1 | 8.2.35-1~deb12u1 |
+
+Both are reported against `php8.2-cli`, `php8.2-common`, `php8.2-opcache`, `php8.2-readline`, and
+`libapache2-mod-php8.2`. Qualys scored them **65 (Medium)** at scan time, even though the CVSS v4
+base score is 9.2.
+
+Scanning the source-built `php2shell-lab:8.3.35` image instead returns **no vulnerabilities**: PHP is
+not a dpkg package, so it never reaches the SBOM. That is expected, not a clean bill of health.
+
 ## Repository layout
 
 ```
 .
 ├── Dockerfile                     # php:${PHP_VERSION}-apache, default 8.3.35
+├── Dockerfile.distro              # Debian php8.2 8.2.32, visible to OS package scanners
 ├── docker-compose.yml             # localhost-only port binding
 ├── php/99-php2shell-lab.ini       # stock defaults, written out explicitly
 ├── src/
