@@ -161,6 +161,36 @@ base score is 9.2.
 Scanning the source-built `php2shell-lab:8.3.35` image instead returns **no vulnerabilities**: PHP is
 not a dpkg package, so it never reaches the SBOM. That is expected, not a clean bill of health.
 
+### Scanning a whole cluster
+
+[`scripts/scan_cluster_php.py`](scripts/scan_cluster_php.py) finds every unique image used by running
+pods, scans each one with qscanner, and maps findings back to the workloads that use them:
+
+```bash
+export QUALYS_CLIENT_ID=...
+export QUALYS_CLIENT_SECRET=...
+
+./scripts/scan_cluster_php.py --pod US2
+```
+
+Useful flags:
+
+- `--context`, `--kubeconfig`, `--namespace` — choose what kubectl talks to (default: all namespaces
+  in the current context).
+- `--all-pods` — include pods that are not in the `Running` phase.
+- `--jobs N` — scan N images in parallel (default: 2).
+- `--dry-run` — list the unique images and workloads without scanning.
+- `--json` — machine-readable output.
+- `--output-dir DIR` — keep the qscanner reports instead of deleting them.
+- `--qscanner-arg ARG` — pass extra qscanner flags, for example
+  `--qscanner-arg=--registry-username=...`.
+
+Exit codes are `0` (no PHP findings), `1` (PHP findings), and `2` (some images could not be
+scanned). `--pod` defaults to `$QSCANNER_POD` or `US2`.
+
+As with the single-image scan, qscanner only sees PHP that is part of the package inventory. A
+source-built PHP image can be vulnerable without appearing in the report.
+
 ## Repository layout
 
 ```
